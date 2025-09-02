@@ -1,47 +1,16 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
-import { useChampionships } from '../../hooks/useChampionships'
-import { Card, StatsCard, Button, Modal, ModalBody, ModalFooter } from '../../components/ui'
+import { useChampionships } from '../../context/ChampionshipsContext'
+import { Card, StatsCard, Button } from '../../components/ui'
 import { DashboardLayout } from '../../components/layout/Layout'
 import { formatDate } from '../../utils/helpers'
+import { Plus } from 'lucide-react'
 
 const OrganizationDashboard = () => {
   const { user } = useAuth()
-  const [showCreateModal, setShowCreateModal] = useState(false)
-  
-  const { 
-    data: allChampionships, 
-    isLoading, 
-    error 
-  } = useChampionships({ organizerId: user.id })
-
-  if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="spinner w-8 h-8 border-primary-500 mb-4"></div>
-          <p className="text-gray-600">Carregando painel da organização...</p>
-        </div>
-      </div>
-    )
-  }
-
-  if (error) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="text-4xl mb-4">⚠️</div>
-          <h2 className="text-xl font-semibold text-gray-900 mb-2">
-            Erro ao carregar dados
-          </h2>
-          <p className="text-gray-600">Tente recarregar a página</p>
-        </div>
-      </div>
-    )
-  }
-
-  const championships = allChampionships?.data || []
+  const navigate = useNavigate()
+  const { championships } = useChampionships()
   const activeChampionships = championships.filter(c => c.status === 'active')
   const draftChampionships = championships.filter(c => c.status === 'draft')
   const finishedChampionships = championships.filter(c => c.status === 'finished')
@@ -54,9 +23,13 @@ const OrganizationDashboard = () => {
       title={`${user.name} 🏆`}
       subtitle="Painel de organização de campeonatos"
       actions={
-        <Button onClick={() => setShowCreateModal(true)}>
-          ➕ Criar Campeonato
-        </Button>
+        <button
+          onClick={() => navigate('/organization/championships/create')}
+          className="flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
+        >
+          <Plus className="w-5 h-5" />
+          Criar Campeonato
+        </button>
       }
     >
       {/* Stats Cards */}
@@ -129,7 +102,7 @@ const OrganizationDashboard = () => {
                         <span className="bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full">
                           Em andamento
                         </span>
-                        <Link to={`/championships/${championship.id}`}>
+                        <Link to={`/organization/championships/${championship.id}/manage`}>
                           <Button size="sm">
                             Gerenciar
                           </Button>
@@ -175,7 +148,7 @@ const OrganizationDashboard = () => {
                         <span className="bg-yellow-100 text-yellow-800 text-xs px-2 py-1 rounded-full">
                           Rascunho
                         </span>
-                        <Link to={`/championships/${championship.id}`}>
+                        <Link to={`/organization/championships/${championship.id}/edit`}>
                           <Button size="sm" variant="outline">
                             Configurar
                           </Button>
@@ -246,13 +219,13 @@ const OrganizationDashboard = () => {
             </h3>
             
             <div className="space-y-3">
-              <Button 
-                className="w-full justify-start"
-                onClick={() => setShowCreateModal(true)}
+              <button
+                onClick={() => navigate('/organization/championships/create')}
+                className="w-full flex items-center justify-start gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
               >
-                <span className="mr-2">➕</span>
+                <Plus className="w-5 h-5" />
                 Criar Campeonato
-              </Button>
+              </button>
               
               <Link to="/organization/championships" className="block">
                 <Button variant="outline" className="w-full justify-start">
@@ -335,118 +308,7 @@ const OrganizationDashboard = () => {
           </Card>
         </div>
       </div>
-
-      {/* Create Championship Modal */}
-      <CreateChampionshipModal 
-        isOpen={showCreateModal}
-        onClose={() => setShowCreateModal(false)}
-      />
     </DashboardLayout>
-  )
-}
-
-// Simple Create Championship Modal
-const CreateChampionshipModal = ({ isOpen, onClose }) => {
-  const [formData, setFormData] = useState({
-    name: '',
-    season: new Date().getFullYear().toString(),
-    format: 'league',
-    description: ''
-  })
-
-  const handleSubmit = (e) => {
-    e.preventDefault()
-    // In real app, this would call the create championship mutation
-    console.log('Creating championship:', formData)
-    onClose()
-    // Show success toast
-    alert('Campeonato criado com sucesso!')
-  }
-
-  const handleChange = (e) => {
-    setFormData(prev => ({
-      ...prev,
-      [e.target.name]: e.target.value
-    }))
-  }
-
-  return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Criar Novo Campeonato" size="lg">
-      <form onSubmit={handleSubmit}>
-        <ModalBody className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Nome do Campeonato *
-            </label>
-            <input
-              type="text"
-              name="name"
-              value={formData.name}
-              onChange={handleChange}
-              className="block w-full px-3 py-2 border border-gray-300 rounded-md"
-              placeholder="Ex: Copa da Várzea 2025"
-              required
-            />
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Temporada *
-              </label>
-              <input
-                type="text"
-                name="season"
-                value={formData.season}
-                onChange={handleChange}
-                className="block w-full px-3 py-2 border border-gray-300 rounded-md"
-                placeholder="2025"
-                required
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Formato *
-              </label>
-              <select
-                name="format"
-                value={formData.format}
-                onChange={handleChange}
-                className="block w-full px-3 py-2 border border-gray-300 rounded-md"
-              >
-                <option value="league">Pontos Corridos</option>
-                <option value="knockout">Eliminatória</option>
-                <option value="mixed">Misto</option>
-              </select>
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Descrição
-            </label>
-            <textarea
-              name="description"
-              value={formData.description}
-              onChange={handleChange}
-              rows={3}
-              className="block w-full px-3 py-2 border border-gray-300 rounded-md"
-              placeholder="Descreva as regras e informações do campeonato..."
-            />
-          </div>
-        </ModalBody>
-
-        <ModalFooter>
-          <Button type="button" variant="outline" onClick={onClose}>
-            Cancelar
-          </Button>
-          <Button type="submit">
-            Criar Campeonato
-          </Button>
-        </ModalFooter>
-      </form>
-    </Modal>
   )
 }
 

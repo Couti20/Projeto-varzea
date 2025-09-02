@@ -29,6 +29,16 @@ const ChampionshipTables = () => {
   const [loading, setLoading] = useState(true)
   const [editingMatch, setEditingMatch] = useState(null)
   const [showAddMatchModal, setShowAddMatchModal] = useState(false)
+  const [confirmMatch, setConfirmMatch] = useState(null) // Para confirmação de resultado
+
+  // Estados para o modal de adicionar jogo
+  const [newMatch, setNewMatch] = useState({
+    homeTeamId: '',
+    awayTeamId: '',
+    date: '',
+    time: '15:00',
+    groupId: ''
+  })
 
   // Mock data - será substituído pela API
   useEffect(() => {
@@ -108,11 +118,14 @@ const ChampionshipTables = () => {
 
   // Calcular estatísticas de cada time
   const calculateTeamStats = (teamId, groupId) => {
+    // CORREÇÃO: Garantir que apenas jogos do grupo específico sejam considerados
     const teamMatches = matches.filter(
       match => match.groupId === groupId && 
       match.status === 'finished' &&
       (match.homeTeamId === teamId || match.awayTeamId === teamId)
     )
+
+    console.log(`Calculando stats para time ${teamId} no grupo ${groupId}:`, teamMatches.length, 'jogos')
 
     let stats = {
       played: 0,
@@ -209,7 +222,19 @@ const ChampionshipTables = () => {
     return table
   }
 
-  // Atualizar resultado de um jogo
+  // Confirmar resultado antes de salvar
+  const confirmMatchResult = (matchId, homeScore, awayScore) => {
+    const match = matches.find(m => m.id === matchId)
+    setConfirmMatch({
+      id: matchId,
+      homeTeamName: getTeamName(match.homeTeamId),
+      awayTeamName: getTeamName(match.awayTeamId),
+      homeScore,
+      awayScore
+    })
+  }
+
+  // Atualizar resultado de um jogo (após confirmação)
   const updateMatchResult = (matchId, homeScore, awayScore) => {
     setMatches(matches.map(match => 
       match.id === matchId 
@@ -217,6 +242,7 @@ const ChampionshipTables = () => {
         : match
     ))
     setEditingMatch(null)
+    setConfirmMatch(null)
   }
 
   // Obter nome do time
@@ -228,10 +254,121 @@ const ChampionshipTables = () => {
     return 'Time'
   }
 
+  // Obter times disponíveis baseado no grupo selecionado
+  const getAvailableTeams = () => {
+    if (!newMatch.groupId) {
+      // Se não selecionou grupo, mostrar todos os times
+      return groups.flatMap(group => 
+        group.teams.map(team => ({...team, groupName: group.name}))
+      )
+    }
+    
+    // Se selecionou grupo, mostrar apenas times do grupo
+    const selectedGroupObj = groups.find(g => g.id === newMatch.groupId)
+    return selectedGroupObj ? selectedGroupObj.teams.map(team => ({...team, groupName: selectedGroupObj.name})) : []
+  }
+
+  // Adicionar novo jogo
+  const addNewMatch = () => {
+    // Validações
+    if (!newMatch.homeTeamId || !newMatch.awayTeamId) {
+      alert('Selecione os times que vão jogar')
+      return
+    }
+    
+    if (newMatch.homeTeamId === newMatch.awayTeamId) {
+      alert('Os times devem ser diferentes')
+      return
+    }
+    
+    if (!newMatch.date) {
+      alert('Selecione a data do jogo')
+      return
+    }
+
+    // CORREÇÃO: Determinar o grupo do jogo de forma mais precisa
+    let matchGroupId = newMatch.groupId
+    
+    if (!matchGroupId) {
+      // Encontrar grupo dos times selecionados
+      const homeTeamGroup = groups.find(g => 
+        g.teams.some(t => t.id === parseInt(newMatch.homeTeamId))
+      )
+      const awayTeamGroup = groups.find(g => 
+        g.teams.some(t => t.id === parseInt(newMatch.awayTeamId))
+      )
+      
+      if (homeTeamGroup && awayTeamGroup) {
+        if (homeTeamGroup.id === awayTeamGroup.id) {
+          // Times do mesmo grupo
+          matchGroupId = homeTeamGroup.id
+        } else {
+          // Times de grupos diferentes - usar primeiro grupo encontrado por enquanto
+          matchGroupId = homeTeamGroup.id
+          console.warn('Times de grupos diferentes - usando grupo do time da casa')
+        }
+      } else {
+        console.error('Erro: Não foi possível determinar o grupo dos times')
+        alert('Erro: Não foi possível determinar o grupo dos times')
+        return
+      }
+    }
+
+    console.log('Criando jogo para grupo:', matchGroupId)
+
+    // Criar novo jogo
+    const newMatchObj = {
+      id: Math.max(...matches.map(m => m.id), 0) + 1,
+      groupId: matchGroupId,
+      homeTeamId: parseInt(newMatch.homeTeamId),
+      awayTeamId: parseInt(newMatch.awayTeamId),
+      homeScore: null,
+      awayScore: null,
+      date: newMatch.date,
+      time: newMatch.time,
+      status: 'scheduled'
+    }
+
+    console.log('Novo jogo criado:', newMatchObj)
+
+    // Adicionar à lista de jogos
+    setMatches([...matches, newMatchObj])
+
+    // Limpar formulário e fechar modal
+    setNewMatch({
+      homeTeamId: '',
+      awayTeamId: '',
+      date: '',
+      time: '15:00',
+      groupId: ''
+    })
+    setShowAddMatchModal(false)
+    
+    // Mostrar mensagem de sucesso
+    alert('Jogo adicionado com sucesso!')
+  }
+
+  // Reset modal ao fechar
+  const closeModal = () => {
+    setShowAddMatchModal(false)
+    setNewMatch({
+      homeTeamId: '',
+      awayTeamId: '',
+      date: '',
+      time: '15:00',
+      groupId: ''
+    })
+  }
+
   // Filtrar grupos para exibição
   const filteredGroups = selectedGroup === 'all' 
     ? groups 
     : groups.filter(g => g.id === selectedGroup)
+
+  // Debug: Verificar dados
+  console.log('Selected group:', selectedGroup)
+  console.log('Filtered groups:', filteredGroups.map(g => g.id))
+  console.log('All matches:', matches.map(m => ({ id: m.id, groupId: m.groupId })))
 
   if (loading) {
     return (
@@ -343,6 +480,7 @@ const ChampionshipTables = () => {
       <div className="space-y-6">
         {filteredGroups.map(group => {
           const table = calculateGroupTable(group)
+          // CORREÇÃO: Filtrar jogos APENAS do grupo atual
           const groupMatches = matches.filter(m => m.groupId === group.id)
           
           return (
@@ -449,14 +587,32 @@ const ChampionshipTables = () => {
 
               {/* Jogos do Grupo */}
               <div className="p-4 border-t border-gray-200">
-                <h3 className="text-sm font-medium text-gray-900 mb-3">Jogos do Grupo</h3>
-                <div className="space-y-2">
-                  {groupMatches.map(match => (
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-sm font-medium text-gray-900">
+                    Jogos do {group.name}
+                  </h3>
+                  <span className="text-xs text-gray-500">
+                    {groupMatches.length} {groupMatches.length === 1 ? 'jogo' : 'jogos'}
+                  </span>
+                </div>
+                
+                {groupMatches.length === 0 ? (
+                  <div className="text-center py-6 text-gray-500">
+                    <Calendar className="w-8 h-8 mx-auto mb-2 text-gray-400" />
+                    <p>Nenhum jogo criado para este grupo ainda</p>
+                    <p className="text-xs mt-1">Use o botão "Adicionar Jogo" para criar partidas</p>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {groupMatches.map(match => (
                     <div key={match.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                       <div className="flex-1 flex items-center gap-3">
-                        <span className="text-xs text-gray-500">
-                          {new Date(match.date).toLocaleDateString('pt-BR')}
-                        </span>
+                        <div className="text-xs text-gray-500">
+                          <div>{new Date(match.date).toLocaleDateString('pt-BR')}</div>
+                          {match.time && (
+                            <div className="mt-0.5">{match.time}</div>
+                          )}
+                        </div>
                         
                         {editingMatch === match.id ? (
                           <div className="flex items-center gap-2">
@@ -516,7 +672,7 @@ const ChampionshipTables = () => {
                               onClick={() => {
                                 const homeScore = parseInt(document.getElementById(`home-${match.id}`).value)
                                 const awayScore = parseInt(document.getElementById(`away-${match.id}`).value)
-                                updateMatchResult(match.id, homeScore, awayScore)
+                                confirmMatchResult(match.id, homeScore, awayScore)
                               }}
                               className="p-1 text-green-600 hover:bg-green-50 rounded"
                             >
@@ -530,19 +686,19 @@ const ChampionshipTables = () => {
                             </button>
                           </>
                         ) : (
-                          match.status === 'scheduled' && (
-                            <button
-                              onClick={() => setEditingMatch(match.id)}
-                              className="p-1 text-gray-600 hover:bg-gray-100 rounded"
-                            >
-                              <Edit className="w-4 h-4" />
-                            </button>
-                          )
+                          <button
+                            onClick={() => setEditingMatch(match.id)}
+                            className="p-1 text-gray-600 hover:bg-gray-100 rounded"
+                            title={match.status === 'finished' ? 'Editar resultado' : 'Adicionar resultado'}
+                          >
+                            <Edit className="w-4 h-4" />
+                          </button>
                         )}
                       </div>
                     </div>
-                  ))}
-                </div>
+                                      ))}
+                  </div>
+                )}
               </div>
             </div>
           )
@@ -576,6 +732,215 @@ const ChampionshipTables = () => {
           </p>
         </div>
       </div>
+
+      {/* Modal Adicionar Jogo */}
+      {showAddMatchModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg w-full max-w-md">
+            <div className="flex items-center justify-between p-4 border-b border-gray-200">
+              <h3 className="text-lg font-semibold text-gray-900">Adicionar Novo Jogo</h3>
+              <button
+                onClick={closeModal}
+                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-4 space-y-4">
+              {/* Seletor de Grupo (Opcional) */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Grupo (opcional)
+                </label>
+                <select
+                  value={newMatch.groupId}
+                  onChange={(e) => setNewMatch({...newMatch, groupId: e.target.value, homeTeamId: '', awayTeamId: ''})}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                >
+                  <option value="">Todos os grupos</option>
+                  {groups.map(group => (
+                    <option key={group.id} value={group.id}>{group.name}</option>
+                  ))}
+                </select>
+                <p className="text-xs text-gray-500 mt-1">
+                  Deixe vazio para permitir jogos entre grupos diferentes
+                </p>
+              </div>
+
+              {/* Time da Casa */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Time da Casa *
+                </label>
+                <select
+                  value={newMatch.homeTeamId}
+                  onChange={(e) => setNewMatch({...newMatch, homeTeamId: e.target.value})}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                >
+                  <option value="">Selecione o time da casa</option>
+                  {getAvailableTeams().map(team => (
+                    <option key={team.id} value={team.id}>
+                      {team.name} {team.groupName && `(${team.groupName})`}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Time Visitante */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Time Visitante *
+                </label>
+                <select
+                  value={newMatch.awayTeamId}
+                  onChange={(e) => setNewMatch({...newMatch, awayTeamId: e.target.value})}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                >
+                  <option value="">Selecione o time visitante</option>
+                  {getAvailableTeams()
+                    .filter(team => team.id.toString() !== newMatch.homeTeamId)
+                    .map(team => (
+                    <option key={team.id} value={team.id}>
+                      {team.name} {team.groupName && `(${team.groupName})`}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Data */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Data do Jogo *
+                </label>
+                <input
+                  type="date"
+                  value={newMatch.date}
+                  onChange={(e) => setNewMatch({...newMatch, date: e.target.value})}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                />
+              </div>
+
+              {/* Horário */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Horário
+                </label>
+                <input
+                  type="time"
+                  value={newMatch.time}
+                  onChange={(e) => setNewMatch({...newMatch, time: e.target.value})}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                />
+              </div>
+
+              {/* Visualização do jogo */}
+              {newMatch.homeTeamId && newMatch.awayTeamId && (
+                <div className="p-3 bg-gray-50 rounded-lg">
+                  <p className="text-sm text-gray-600 mb-1">Prévia do jogo:</p>
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium text-gray-900">
+                      {getTeamName(parseInt(newMatch.homeTeamId))}
+                    </span>
+                    <span className="text-gray-500">vs</span>
+                    <span className="font-medium text-gray-900">
+                      {getTeamName(parseInt(newMatch.awayTeamId))}
+                    </span>
+                  </div>
+                  {newMatch.date && (
+                    <div className="flex items-center gap-2 mt-1 text-sm text-gray-600">
+                      <Calendar className="w-4 h-4" />
+                      <span>{new Date(newMatch.date).toLocaleDateString('pt-BR')}</span>
+                      <Clock className="w-4 h-4 ml-2" />
+                      <span>{newMatch.time}</span>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Footer do Modal */}
+            <div className="flex items-center justify-end gap-3 p-4 border-t border-gray-200">
+              <button
+                onClick={closeModal}
+                className="px-4 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={addNewMatch}
+                disabled={!newMatch.homeTeamId || !newMatch.awayTeamId || !newMatch.date}
+                className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
+              >
+                Adicionar Jogo
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Confirmação de Resultado */}
+      {confirmMatch && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg w-full max-w-sm">
+            <div className="flex items-center justify-between p-4 border-b border-gray-200">
+              <h3 className="text-lg font-semibold text-gray-900">Confirmar Resultado</h3>
+              <AlertCircle className="w-5 h-5 text-yellow-500" />
+            </div>
+
+            <div className="p-4">
+              <p className="text-sm text-gray-600 mb-4">
+                Confirma o resultado abaixo? As tabelas serão atualizadas automaticamente.
+              </p>
+              
+              <div className="bg-gray-50 rounded-lg p-4 mb-4">
+                <div className="flex items-center justify-center gap-3">
+                  <div className="text-center">
+                    <p className="font-medium text-gray-900">{confirmMatch.homeTeamName}</p>
+                    <p className="text-2xl font-bold text-primary-600">{confirmMatch.homeScore}</p>
+                  </div>
+                  
+                  <div className="text-center">
+                    <p className="text-gray-500 text-sm">vs</p>
+                    <p className="text-xl font-bold text-gray-400">×</p>
+                  </div>
+                  
+                  <div className="text-center">
+                    <p className="font-medium text-gray-900">{confirmMatch.awayTeamName}</p>
+                    <p className="text-2xl font-bold text-primary-600">{confirmMatch.awayScore}</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+                <div className="flex">
+                  <AlertCircle className="w-5 h-5 text-yellow-400 mr-2 flex-shrink-0" />
+                  <div>
+                    <p className="text-sm text-yellow-800">
+                      <strong>Atenção:</strong> Após confirmar, as tabelas de classificação serão atualizadas imediatamente.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-3 p-4 border-t border-gray-200">
+              <button
+                onClick={() => setConfirmMatch(null)}
+                className="px-4 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={() => updateMatchResult(confirmMatch.id, confirmMatch.homeScore, confirmMatch.awayScore)}
+                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+              >
+                Confirmar Resultado
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

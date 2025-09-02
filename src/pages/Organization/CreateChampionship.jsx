@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useChampionships } from '../../context/ChampionshipsContext'
 import { 
   Trophy, 
   ArrowLeft,
@@ -12,11 +13,14 @@ import {
   Calendar,
   Settings,
   FileText,
-  ChevronRight
+  ChevronRight,
+  Clock,
+  UserCheck
 } from 'lucide-react'
 
 const CreateChampionship = () => {
   const navigate = useNavigate()
+  const { addChampionship } = useChampionships()
   const [currentStep, setCurrentStep] = useState(1)
   const [loading, setLoading] = useState(false)
   
@@ -40,24 +44,38 @@ const CreateChampionship = () => {
       }
     ],
     
-    // Configurações do Campeonato
+    // Sistema de Pontuação
     pointsWin: 3,
     pointsDraw: 1,
     pointsLoss: 0,
     tiebreakers: ['points', 'wins', 'goal_difference', 'goals_for', 'head_to_head'],
     
+    // Sistema de Cartões
+    yellowCardLimit: 3,
+    redCardSuspension: 1,
+    
+    // Configurações de Partida
+    matchDuration: 90,
+    matchPeriods: 2,
+    intervalDuration: 15,
+    substitutions: 5,
+    extraTime: false,
+    
     // Regulamento
     rules: '',
     minPlayers: 11,
     maxPlayers: 25,
-    allowYellowCards: true,
-    yellowCardLimit: 3,
-    allowRedCards: true,
-    redCardSuspension: 1,
     
     // Taxas
     registrationFee: '',
-    feeDeadline: ''
+    feeDeadline: '',
+
+    // SISTEMA DE PREMIAÇÃO
+    hasAwards: false,
+    awardType: '2', // '2' para 1º e 2º, '3' para 1º, 2º e 3º
+    firstPlaceAward: '',
+    secondPlaceAward: '',
+    thirdPlaceAward: ''
   })
 
   const [errors, setErrors] = useState({})
@@ -68,6 +86,22 @@ const CreateChampionship = () => {
     { id: 3, name: 'Regras e Pontuação', icon: Settings },
     { id: 4, name: 'Revisão', icon: Trophy }
   ]
+
+  // Função para formatar moeda
+  const formatCurrency = (value) => {
+    if (!value) return '';
+    const numericValue = value.toString().replace(/\D/g, '');
+    if (numericValue === '') return '';
+    return new Intl.NumberFormat('pt-BR', {
+      style: 'currency',
+      currency: 'BRL'
+    }).format(numericValue / 100);
+  };
+
+  const handleCurrencyChange = (field, value) => {
+    const numericValue = value.replace(/\D/g, '');
+    setFormData({ ...formData, [field]: numericValue });
+  };
 
   // Adicionar novo grupo
   const addGroup = () => {
@@ -131,6 +165,15 @@ const CreateChampionship = () => {
       if (formData.startDate && formData.endDate && formData.startDate >= formData.endDate) {
         newErrors.endDate = 'Data de término deve ser após a data de início'
       }
+
+      // Validação da premiação
+      if (formData.hasAwards) {
+        if (!formData.firstPlaceAward) newErrors.firstPlaceAward = 'Prêmio 1º lugar é obrigatório'
+        if (!formData.secondPlaceAward) newErrors.secondPlaceAward = 'Prêmio 2º lugar é obrigatório'
+        if (formData.awardType === '3' && !formData.thirdPlaceAward) {
+          newErrors.thirdPlaceAward = 'Prêmio 3º lugar é obrigatório'
+        }
+      }
     }
 
     if (step === 2) {
@@ -173,16 +216,66 @@ const CreateChampionship = () => {
     setCurrentStep(currentStep - 1)
   }
 
-  // Salvar campeonato
+  // Salvar campeonato - VERSÃO CORRIGIDA COM REDIRECIONAMENTO
   const handleSave = async () => {
     if (!validateStep(currentStep)) return
 
     setLoading(true)
     
-    // Simular salvamento
+    // Simular processamento
     setTimeout(() => {
-      console.log('Salvando campeonato:', formData)
-      navigate('/organization/championships')
+      // Preparar dados do campeonato
+      const championshipData = {
+        name: formData.name,
+        description: formData.description,
+        startDate: formData.startDate,
+        endDate: formData.endDate,
+        registrationDeadline: formData.registrationDeadline,
+        registrationFee: formData.registrationFee,
+        feeDeadline: formData.feeDeadline,
+        format: formData.format,
+        groups: formData.groups,
+        season: new Date(formData.startDate).getFullYear().toString(),
+        
+        // Dados da premiação
+        awards: formData.hasAwards ? {
+          firstPlace: parseInt(formData.firstPlaceAward) || 0,
+          secondPlace: parseInt(formData.secondPlaceAward) || 0,
+          thirdPlace: formData.awardType === '3' ? (parseInt(formData.thirdPlaceAward) || 0) : 0,
+          total: (parseInt(formData.firstPlaceAward) || 0) + 
+                 (parseInt(formData.secondPlaceAward) || 0) + 
+                 (formData.awardType === '3' ? (parseInt(formData.thirdPlaceAward) || 0) : 0)
+        } : null,
+        
+        // Todas as configurações do wizard
+        settings: {
+          pointsWin: formData.pointsWin,
+          pointsDraw: formData.pointsDraw,
+          pointsLoss: formData.pointsLoss,
+          yellowCardLimit: formData.yellowCardLimit,
+          redCardSuspension: formData.redCardSuspension,
+          matchDuration: formData.matchDuration,
+          matchPeriods: formData.matchPeriods,
+          intervalDuration: formData.intervalDuration,
+          substitutions: formData.substitutions,
+          extraTime: formData.extraTime,
+          tiebreakers: formData.tiebreakers,
+          minPlayers: formData.minPlayers,
+          maxPlayers: formData.maxPlayers,
+          rules: formData.rules,
+          registrationOpen: true // Abre inscrições por padrão
+        }
+      }
+
+      console.log('Salvando campeonato:', championshipData)
+      
+      // Salvar no Context
+      const newChampionshipId = addChampionship(championshipData)
+      
+      // REDIRECIONAMENTO PARA A PÁGINA DE VISUALIZAÇÃO
+      navigate(`/organization/championships/${newChampionshipId}/view`)
+      
+      setLoading(false)
     }, 1500)
   }
 
@@ -328,13 +421,11 @@ const CreateChampionship = () => {
                     Taxa de Inscrição
                   </label>
                   <input
-                    type="number"
-                    value={formData.registrationFee}
-                    onChange={(e) => setFormData({ ...formData, registrationFee: e.target.value })}
+                    type="text"
+                    value={formatCurrency(formData.registrationFee)}
+                    onChange={(e) => handleCurrencyChange('registrationFee', e.target.value)}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
                     placeholder="R$ 0,00"
-                    min="0"
-                    step="0.01"
                   />
                 </div>
 
@@ -349,6 +440,166 @@ const CreateChampionship = () => {
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
                   />
                 </div>
+              </div>
+
+              {/* SEÇÃO DE PREMIAÇÃO */}
+              <div className="border-t border-gray-200 pt-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-medium text-gray-900 flex items-center gap-2">
+                    <Trophy className="w-5 h-5 text-yellow-500" />
+                    Premiação
+                  </h3>
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={formData.hasAwards}
+                      onChange={(e) => setFormData({ ...formData, hasAwards: e.target.checked })}
+                      className="w-4 h-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500"
+                    />
+                    <span className="text-sm text-gray-700">Campeonato com premiação</span>
+                  </label>
+                </div>
+
+                {formData.hasAwards && (
+                  <div className="space-y-6">
+                    {/* Tipo de Premiação */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-3">
+                        Quantas colocações serão premiadas?
+                      </label>
+                      <div className="grid grid-cols-2 gap-3">
+                        <button
+                          type="button"
+                          onClick={() => setFormData({ ...formData, awardType: '2' })}
+                          className={`p-3 rounded-lg border-2 text-center transition-all ${
+                            formData.awardType === '2' 
+                              ? 'border-primary-500 bg-primary-50 text-primary-700' 
+                              : 'border-gray-200 hover:border-gray-300 text-gray-700'
+                          }`}
+                        >
+                          <div className="text-lg mb-1">🥇🥈</div>
+                          <div className="text-sm font-medium">1º e 2º Lugar</div>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => setFormData({ ...formData, awardType: '3' })}
+                          className={`p-3 rounded-lg border-2 text-center transition-all ${
+                            formData.awardType === '3' 
+                              ? 'border-primary-500 bg-primary-50 text-primary-700' 
+                              : 'border-gray-200 hover:border-gray-300 text-gray-700'
+                          }`}
+                        >
+                          <div className="text-lg mb-1">🥇🥈🥉</div>
+                          <div className="text-sm font-medium">1º, 2º e 3º Lugar</div>
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Campos de Premiação */}
+                    <div className="space-y-4">
+                      {/* 1º Lugar */}
+                      <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-200">
+                        <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center">
+                          🥇 <span className="ml-2">Prêmio 1º Lugar *</span>
+                        </label>
+                        <input
+                          type="text"
+                          value={formatCurrency(formData.firstPlaceAward)}
+                          onChange={(e) => handleCurrencyChange('firstPlaceAward', e.target.value)}
+                          placeholder="R$ 0,00"
+                          className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 bg-white ${
+                            errors.firstPlaceAward ? 'border-red-500' : 'border-yellow-300'
+                          }`}
+                        />
+                        {errors.firstPlaceAward && (
+                          <p className="text-red-500 text-sm mt-1">{errors.firstPlaceAward}</p>
+                        )}
+                      </div>
+
+                      {/* 2º Lugar */}
+                      <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                        <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center">
+                          🥈 <span className="ml-2">Prêmio 2º Lugar *</span>
+                        </label>
+                        <input
+                          type="text"
+                          value={formatCurrency(formData.secondPlaceAward)}
+                          onChange={(e) => handleCurrencyChange('secondPlaceAward', e.target.value)}
+                          placeholder="R$ 0,00"
+                          className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-gray-500 bg-white ${
+                            errors.secondPlaceAward ? 'border-red-500' : 'border-gray-300'
+                          }`}
+                        />
+                        {errors.secondPlaceAward && (
+                          <p className="text-red-500 text-sm mt-1">{errors.secondPlaceAward}</p>
+                        )}
+                      </div>
+
+                      {/* 3º Lugar - só aparece se for selecionado */}
+                      {formData.awardType === '3' && (
+                        <div className="bg-amber-50 p-4 rounded-lg border border-amber-200">
+                          <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center">
+                            🥉 <span className="ml-2">Prêmio 3º Lugar *</span>
+                          </label>
+                          <input
+                            type="text"
+                            value={formatCurrency(formData.thirdPlaceAward)}
+                            onChange={(e) => handleCurrencyChange('thirdPlaceAward', e.target.value)}
+                            placeholder="R$ 0,00"
+                            className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500 bg-white ${
+                              errors.thirdPlaceAward ? 'border-red-500' : 'border-amber-300'
+                            }`}
+                          />
+                          {errors.thirdPlaceAward && (
+                            <p className="text-red-500 text-sm mt-1">{errors.thirdPlaceAward}</p>
+                          )}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Resumo da Premiação */}
+                    {(formData.firstPlaceAward || formData.secondPlaceAward || formData.thirdPlaceAward) && (
+                      <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+                        <h4 className="font-medium text-blue-900 mb-3">💰 Resumo da Premiação</h4>
+                        <div className="space-y-2 text-sm">
+                          {formData.firstPlaceAward && (
+                            <div className="flex justify-between">
+                              <span>🥇 1º Lugar:</span>
+                              <span className="font-medium">{formatCurrency(formData.firstPlaceAward)}</span>
+                            </div>
+                          )}
+                          {formData.secondPlaceAward && (
+                            <div className="flex justify-between">
+                              <span>🥈 2º Lugar:</span>
+                              <span className="font-medium">{formatCurrency(formData.secondPlaceAward)}</span>
+                            </div>
+                          )}
+                          {formData.awardType === '3' && formData.thirdPlaceAward && (
+                            <div className="flex justify-between">
+                              <span>🥉 3º Lugar:</span>
+                              <span className="font-medium">{formatCurrency(formData.thirdPlaceAward)}</span>
+                            </div>
+                          )}
+                          <div className="border-t border-blue-200 pt-2 mt-3">
+                            <div className="flex justify-between font-bold text-blue-900">
+                              <span>Total em Premiação:</span>
+                              <span>
+                                {formatCurrency(
+                                  String(
+                                    (parseInt(formData.firstPlaceAward) || 0) + 
+                                    (parseInt(formData.secondPlaceAward) || 0) + 
+                                    (formData.awardType === '3' ? (parseInt(formData.thirdPlaceAward) || 0) : 0)
+                                  )
+                                )}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -483,52 +734,213 @@ const CreateChampionship = () => {
 
           {/* Step 3: Regras e Pontuação */}
           {currentStep === 3 && (
-            <div className="space-y-6">
-              <div>
-                <h3 className="text-lg font-medium text-gray-900 mb-4">Sistema de Pontuação</h3>
+            <div className="space-y-8">
+              {/* Sistema de Pontuação */}
+              <div className="bg-white border border-gray-200 rounded-lg p-6">
+                <h3 className="text-lg font-medium text-gray-900 mb-4 flex items-center gap-2">
+                  <Trophy className="w-5 h-5 text-yellow-500" />
+                  Sistema de Pontuação
+                </h3>
                 <div className="grid grid-cols-3 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Pontos por Vitória
+                      Vitória
                     </label>
-                    <input
-                      type="number"
-                      value={formData.pointsWin}
-                      onChange={(e) => setFormData({ ...formData, pointsWin: parseInt(e.target.value) || 0 })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
-                      min="0"
-                    />
+                    <div className="relative">
+                      <input
+                        type="number"
+                        value={formData.pointsWin}
+                        onChange={(e) => setFormData({ ...formData, pointsWin: parseInt(e.target.value) || 0 })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 text-right pr-8"
+                        min="0"
+                      />
+                      <span className="absolute right-3 top-2.5 text-sm text-gray-500">pts</span>
+                    </div>
                   </div>
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Pontos por Empate
+                      Empate
                     </label>
-                    <input
-                      type="number"
-                      value={formData.pointsDraw}
-                      onChange={(e) => setFormData({ ...formData, pointsDraw: parseInt(e.target.value) || 0 })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
-                      min="0"
-                    />
+                    <div className="relative">
+                      <input
+                        type="number"
+                        value={formData.pointsDraw}
+                        onChange={(e) => setFormData({ ...formData, pointsDraw: parseInt(e.target.value) || 0 })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 text-right pr-8"
+                        min="0"
+                      />
+                      <span className="absolute right-3 top-2.5 text-sm text-gray-500">pts</span>
+                    </div>
                   </div>
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Pontos por Derrota
+                      Derrota
                     </label>
-                    <input
-                      type="number"
-                      value={formData.pointsLoss}
-                      onChange={(e) => setFormData({ ...formData, pointsLoss: parseInt(e.target.value) || 0 })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
-                      min="0"
-                    />
+                    <div className="relative">
+                      <input
+                        type="number"
+                        value={formData.pointsLoss}
+                        onChange={(e) => setFormData({ ...formData, pointsLoss: parseInt(e.target.value) || 0 })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 text-right pr-8"
+                        min="0"
+                      />
+                      <span className="absolute right-3 top-2.5 text-sm text-gray-500">pts</span>
+                    </div>
                   </div>
                 </div>
               </div>
 
-              <div>
+              {/* Sistema de Cartões */}
+              <div className="bg-white border border-gray-200 rounded-lg p-6">
+                <h3 className="text-lg font-medium text-gray-900 mb-4 flex items-center gap-2">
+                  <UserCheck className="w-5 h-5 text-yellow-500" />
+                  Sistema de Cartões
+                </h3>
+                <div className="grid grid-cols-2 gap-6">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Limite Amarelos
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="number"
+                        value={formData.yellowCardLimit}
+                        onChange={(e) => setFormData({ ...formData, yellowCardLimit: parseInt(e.target.value) || 0 })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 text-right pr-16"
+                        min="1"
+                      />
+                      <span className="absolute right-3 top-2.5 text-sm text-gray-500">jogo(s)</span>
+                    </div>
+                    <p className="text-xs text-gray-500 mt-1">
+                      Cartões amarelos para suspensão
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Suspensão Vermelho
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="number"
+                        value={formData.redCardSuspension}
+                        onChange={(e) => setFormData({ ...formData, redCardSuspension: parseInt(e.target.value) || 0 })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 text-right pr-16"
+                        min="1"
+                      />
+                      <span className="absolute right-3 top-2.5 text-sm text-gray-500">jogo(s)</span>
+                    </div>
+                    <p className="text-xs text-gray-500 mt-1">
+                      Jogos de suspensão por cartão vermelho
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Configurações de Partida */}
+              <div className="bg-white border border-gray-200 rounded-lg p-6">
+                <h3 className="text-lg font-medium text-gray-900 mb-4 flex items-center gap-2">
+                  <Clock className="w-5 h-5 text-blue-500" />
+                  Configurações de Partida
+                </h3>
+                <div className="grid grid-cols-2 gap-6">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Duração
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="number"
+                        value={formData.matchDuration}
+                        onChange={(e) => setFormData({ ...formData, matchDuration: parseInt(e.target.value) || 90 })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 text-right pr-12"
+                        min="1"
+                      />
+                      <span className="absolute right-3 top-2.5 text-sm text-gray-500">min</span>
+                    </div>
+                    <p className="text-xs text-gray-500 mt-1">
+                      Duração total da partida
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Número de Tempos
+                    </label>
+                    <select
+                      value={formData.matchPeriods}
+                      onChange={(e) => setFormData({ ...formData, matchPeriods: parseInt(e.target.value) })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                    >
+                      <option value="1">1 tempo</option>
+                      <option value="2">2 tempos</option>
+                      <option value="3">3 tempos</option>
+                      <option value="4">4 tempos</option>
+                    </select>
+                    <p className="text-xs text-gray-500 mt-1">
+                      Quantos períodos a partida terá
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Intervalo
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="number"
+                        value={formData.intervalDuration}
+                        onChange={(e) => setFormData({ ...formData, intervalDuration: parseInt(e.target.value) || 15 })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 text-right pr-12"
+                        min="1"
+                      />
+                      <span className="absolute right-3 top-2.5 text-sm text-gray-500">min</span>
+                    </div>
+                    <p className="text-xs text-gray-500 mt-1">
+                      Tempo de intervalo entre os tempos
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Substituições
+                    </label>
+                    <input
+                      type="number"
+                      value={formData.substitutions}
+                      onChange={(e) => setFormData({ ...formData, substitutions: parseInt(e.target.value) || 5 })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                      min="3"
+                      max="7"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      Número máximo de substituições
+                    </p>
+                  </div>
+                </div>
+
+                <div className="mt-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Prorrogação
+                  </label>
+                  <select
+                    value={formData.extraTime}
+                    onChange={(e) => setFormData({ ...formData, extraTime: e.target.value === 'true' })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  >
+                    <option value="false">Não</option>
+                    <option value="true">Sim</option>
+                  </select>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Se haverá prorrogação em caso de empate
+                  </p>
+                </div>
+              </div>
+
+              {/* Critérios de Desempate */}
+              <div className="bg-white border border-gray-200 rounded-lg p-6">
                 <h3 className="text-lg font-medium text-gray-900 mb-4">Critérios de Desempate</h3>
                 <div className="bg-gray-50 rounded-lg p-4 space-y-2">
                   <p className="text-sm text-gray-600 mb-3">
@@ -552,8 +964,9 @@ const CreateChampionship = () => {
                 </div>
               </div>
 
-              <div>
-                <h3 className="text-lg font-medium text-gray-900 mb-4">Regras do Campeonato</h3>
+              {/* Regulamento Adicional */}
+              <div className="bg-white border border-gray-200 rounded-lg p-6">
+                <h3 className="text-lg font-medium text-gray-900 mb-4">Regulamento Adicional</h3>
                 
                 <div className="grid grid-cols-2 gap-4 mb-4">
                   <div>
@@ -583,61 +996,9 @@ const CreateChampionship = () => {
                   </div>
                 </div>
 
-                <div className="space-y-3">
-                  <label className="flex items-center gap-3">
-                    <input
-                      type="checkbox"
-                      checked={formData.allowYellowCards}
-                      onChange={(e) => setFormData({ ...formData, allowYellowCards: e.target.checked })}
-                      className="w-4 h-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500"
-                    />
-                    <span className="text-sm text-gray-700">Sistema de Cartões Amarelos</span>
-                  </label>
-
-                  {formData.allowYellowCards && (
-                    <div className="ml-7">
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Limite de cartões amarelos para suspensão
-                      </label>
-                      <input
-                        type="number"
-                        value={formData.yellowCardLimit}
-                        onChange={(e) => setFormData({ ...formData, yellowCardLimit: parseInt(e.target.value) || 0 })}
-                        className="w-32 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
-                        min="1"
-                      />
-                    </div>
-                  )}
-
-                  <label className="flex items-center gap-3">
-                    <input
-                      type="checkbox"
-                      checked={formData.allowRedCards}
-                      onChange={(e) => setFormData({ ...formData, allowRedCards: e.target.checked })}
-                      className="w-4 h-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500"
-                    />
-                    <span className="text-sm text-gray-700">Sistema de Cartões Vermelhos</span>
-                  </label>
-
-                  {formData.allowRedCards && (
-                    <div className="ml-7">
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Jogos de suspensão por cartão vermelho
-                      </label>
-                      <input
-                        type="number"
-                        value={formData.redCardSuspension}
-                        onChange={(e) => setFormData({ ...formData, redCardSuspension: parseInt(e.target.value) || 0 })}
-                        className="w-32 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
-                        min="1"
-                      />
-                    </div>
-                  )}
-                </div>
-
-                <div className="mt-4">
+                <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Regulamento Adicional
+                    Regras Específicas
                   </label>
                   <textarea
                     value={formData.rules}
@@ -696,11 +1057,55 @@ const CreateChampionship = () => {
                     {formData.registrationFee && (
                       <div className="flex justify-between">
                         <dt className="text-gray-600">Taxa de Inscrição:</dt>
-                        <dd className="font-medium text-gray-900">R$ {formData.registrationFee}</dd>
+                        <dd className="font-medium text-gray-900">{formatCurrency(formData.registrationFee)}</dd>
                       </div>
                     )}
                   </dl>
                 </div>
+
+                {/* SEÇÃO DE PREMIAÇÃO NA REVISÃO */}
+                {formData.hasAwards && (
+                  <div className="bg-white border border-gray-200 rounded-lg p-4">
+                    <h3 className="font-medium text-gray-900 mb-3 flex items-center gap-2">
+                      <Trophy className="w-4 h-4 text-yellow-500" />
+                      Premiação
+                    </h3>
+                    <div className="space-y-2 text-sm">
+                      {formData.firstPlaceAward && (
+                        <div className="flex justify-between">
+                          <dt className="text-gray-600">🥇 1º Lugar:</dt>
+                          <dd className="font-medium text-gray-900">{formatCurrency(formData.firstPlaceAward)}</dd>
+                        </div>
+                      )}
+                      {formData.secondPlaceAward && (
+                        <div className="flex justify-between">
+                          <dt className="text-gray-600">🥈 2º Lugar:</dt>
+                          <dd className="font-medium text-gray-900">{formatCurrency(formData.secondPlaceAward)}</dd>
+                        </div>
+                      )}
+                      {formData.awardType === '3' && formData.thirdPlaceAward && (
+                        <div className="flex justify-between">
+                          <dt className="text-gray-600">🥉 3º Lugar:</dt>
+                          <dd className="font-medium text-gray-900">{formatCurrency(formData.thirdPlaceAward)}</dd>
+                        </div>
+                      )}
+                      {(formData.firstPlaceAward || formData.secondPlaceAward || formData.thirdPlaceAward) && (
+                        <div className="flex justify-between pt-2 border-t border-gray-200">
+                          <dt className="text-gray-600 font-medium">💰 Total:</dt>
+                          <dd className="font-bold text-green-600">
+                            {formatCurrency(
+                              String(
+                                (parseInt(formData.firstPlaceAward) || 0) + 
+                                (parseInt(formData.secondPlaceAward) || 0) + 
+                                (formData.awardType === '3' ? (parseInt(formData.thirdPlaceAward) || 0) : 0)
+                              )
+                            )}
+                          </dd>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
 
                 <div className="bg-white border border-gray-200 rounded-lg p-4">
                   <h3 className="font-medium text-gray-900 mb-3">Configuração do Campeonato</h3>
@@ -746,13 +1151,31 @@ const CreateChampionship = () => {
                 </div>
 
                 <div className="bg-white border border-gray-200 rounded-lg p-4">
-                  <h3 className="font-medium text-gray-900 mb-3">Pontuação e Regras</h3>
+                  <h3 className="font-medium text-gray-900 mb-3">Regras e Configurações</h3>
                   <dl className="space-y-2 text-sm">
                     <div className="flex justify-between">
                       <dt className="text-gray-600">Sistema de Pontos:</dt>
                       <dd className="font-medium text-gray-900">
                         V: {formData.pointsWin} | E: {formData.pointsDraw} | D: {formData.pointsLoss}
                       </dd>
+                    </div>
+                    <div className="flex justify-between">
+                      <dt className="text-gray-600">Duração da Partida:</dt>
+                      <dd className="font-medium text-gray-900">
+                        {formData.matchDuration} min ({formData.matchPeriods} {formData.matchPeriods === 1 ? 'tempo' : 'tempos'})
+                      </dd>
+                    </div>
+                    <div className="flex justify-between">
+                      <dt className="text-gray-600">Intervalo:</dt>
+                      <dd className="font-medium text-gray-900">{formData.intervalDuration} min</dd>
+                    </div>
+                    <div className="flex justify-between">
+                      <dt className="text-gray-600">Substituições:</dt>
+                      <dd className="font-medium text-gray-900">{formData.substitutions}</dd>
+                    </div>
+                    <div className="flex justify-between">
+                      <dt className="text-gray-600">Prorrogação:</dt>
+                      <dd className="font-medium text-gray-900">{formData.extraTime ? 'Sim' : 'Não'}</dd>
                     </div>
                     <div className="flex justify-between">
                       <dt className="text-gray-600">Elenco:</dt>
@@ -763,9 +1186,7 @@ const CreateChampionship = () => {
                     <div className="flex justify-between">
                       <dt className="text-gray-600">Cartões:</dt>
                       <dd className="font-medium text-gray-900">
-                        {formData.allowYellowCards && `${formData.yellowCardLimit} amarelos = suspensão`}
-                        {formData.allowYellowCards && formData.allowRedCards && ' | '}
-                        {formData.allowRedCards && `Vermelho = ${formData.redCardSuspension} jogo(s)`}
+                        {formData.yellowCardLimit} amarelos = suspensão | Vermelho = {formData.redCardSuspension} jogo(s)
                       </dd>
                     </div>
                   </dl>

@@ -11,8 +11,6 @@ import {
   CheckCircle,
   XCircle,
   AlertCircle,
-  Edit,
-  Trash2,
   Eye
 } from 'lucide-react'
 
@@ -334,23 +332,14 @@ const OrganizationChampionships = () => {
 
                   {/* Actions */}
                   <div className="flex flex-wrap gap-2">
-
                     <button
                       onClick={() => navigate(`/organization/championships/${championship.id}/view`)}
-                      className="flex items-center gap-2 px-3 py-1.5 text-sm bg-primary-50 text-primary-600 rounded-   lg                          hover:bg-primary-100 transition-colors"
+                      className="flex items-center gap-2 px-3 py-1.5 text-sm bg-primary-50 text-primary-600 rounded-lg hover:bg-primary-100 transition-colors"
                     >
                       <Eye className="w-4 h-4" />
                       Visualizar
                     </button>
 
-
-                    {/* <button
-                      onClick={() => navigate(`/organization/championships/${championship.id}`)}
-                      className="flex items-center gap-2 px-3 py-1.5 text-sm bg-primary-50 text-primary-600 rounded-lg hover:bg-primary-100 transition-colors"
-                    >
-                      <Eye className="w-4 h-4" />
-                      Visualizar
-                    </button> */}
                     <button
                       onClick={() => navigate(`/organization/championships/${championship.id}/manage`)}
                       className="flex items-center gap-2 px-3 py-1.5 text-sm bg-gray-50 text-gray-700 rounded-lg hover:bg-gray-100 transition-colors"
@@ -358,6 +347,7 @@ const OrganizationChampionships = () => {
                       <Settings className="w-4 h-4" />
                       Gerenciar
                     </button>
+                    
                     {championship.status === 'registration' && (
                       <button
                         onClick={() => navigate(`/organization/championships/${championship.id}/teams`)}
@@ -367,6 +357,7 @@ const OrganizationChampionships = () => {
                         Times Inscritos
                       </button>
                     )}
+                    
                     {championship.status === 'active' && (
                       <button
                         onClick={() => navigate(`/organization/championships/${championship.id}/tables`)}
@@ -376,12 +367,6 @@ const OrganizationChampionships = () => {
                         Tabelas
                       </button>
                     )}
-                    <button
-                      onClick={() => navigate(`/organization/championships/${championship.id}/edit`)}
-                      className="flex items-center gap-2 px-3 py-1.5 text-sm text-gray-600 hover:text-gray-800 transition-colors"
-                    >
-                      <Edit className="w-4 h-4" />
-                    </button>
                   </div>
                 </div>
               </div>
