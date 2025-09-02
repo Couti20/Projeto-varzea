@@ -20,6 +20,11 @@ import AthleteInvites from './pages/Athlete/AthleteInvites'
 
 // Organization pages
 import OrganizationChampionships from './pages/Organization/OrganizationChampionships'
+import CreateChampionship from './pages/Organization/CreateChampionship'
+import ChampionshipTables from './pages/Organization/ChampionshipTables'
+import ChampionshipManage from './pages/Organization/ChampionshipManage'
+import ChampionshipTeams from './pages/Organization/ChampionshipTeams'
+import ChampionshipView from './pages/Organization/ChampionshipView' 
 
 // Championship pages
 import Championships from './pages/Championship/Championships'
@@ -86,6 +91,31 @@ function App() {
             <OrganizationChampionships />
           </ProtectedRoute>
         } />
+        <Route path="/organization/championships/create" element={
+          <ProtectedRoute requiredType="organization">
+            <CreateChampionship />
+          </ProtectedRoute>
+        } />
+        <Route path="/organization/championships/:id/tables" element={
+          <ProtectedRoute requiredType="organization">
+            <ChampionshipTables />
+          </ProtectedRoute>
+        } />
+        <Route path="/organization/championships/:id/manage" element={
+          <ProtectedRoute requiredType="organization">
+            <ChampionshipManage />
+          </ProtectedRoute>
+        } />
+        <Route path="/organization/championships/:id/teams" element={
+          <ProtectedRoute requiredType="organization">
+            <ChampionshipTeams />
+          </ProtectedRoute>
+        } />
+        <Route path="/organization/championships/:id/edit" element={
+          <ProtectedRoute requiredType="organization">
+            <CreateChampionship />
+          </ProtectedRoute>
+        } />
 
         {/* Championship routes */}
         <Route path="/championships" element={
@@ -98,6 +128,12 @@ function App() {
             <ChampionshipDetail />
           </ProtectedRoute>
         } />
+
+        <Route path="/organization/championships/:id/view" element={
+  <ProtectedRoute requiredType="organization">
+    <ChampionshipView />
+  </ProtectedRoute>
+} />
 
         {/* Default redirects */}
         <Route 
