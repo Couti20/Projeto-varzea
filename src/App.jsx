@@ -1,3 +1,4 @@
+// src/App.jsx - VERSÃO ATUALIZADA
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { useAuth } from './context/AuthContext'
 import { ChampionshipsProvider } from './context/ChampionshipsContext'
@@ -14,22 +15,34 @@ import Dashboard from './pages/Dashboard'
 
 // Club pages
 import ClubTeam from './pages/Club/ClubTeam'
+import ClubDashboard from './pages/Club/ClubDashboard'
 
 // Athlete pages
 import AthleteProfile from './pages/Athlete/AthleteProfile'
 import AthleteInvites from './pages/Athlete/AthleteInvites'
+import AthleteDashboard from './pages/Athlete/AthleteDashboard'
 
-// Organization pages
+// Organization pages - ATUALIZADAS
 import OrganizationChampionships from './pages/Organization/OrganizationChampionships'
+import OrganizationAdvancedDashboard from './pages/Organization/OrganizationAdvancedDashboard'
 import CreateChampionship from './pages/Organization/CreateChampionship'
-import ChampionshipTables from './pages/Organization/ChampionshipTables'
 import ChampionshipManage from './pages/Organization/ChampionshipManage'
-import ChampionshipTeams from './pages/Organization/ChampionshipTeams'
-import ChampionshipView from './pages/Organization/ChampionshipView' // ✅ Importação adicionada
+import ChampionshipTeamsManagement from './pages/Organization/ChampionshipTeamsManagement'
+import ChampionshipTables from './pages/Organization/ChampionshipTables'
+import ChampionshipResults from './pages/Organization/ChampionshipResults'
+import ChampionshipReports from './pages/Organization/ChampionshipReports'
+import UnifiedChampionshipDashboard from './pages/Organization/UnifiedChampionshipDashboard'
 
-// Championship pages
+// Championship pages (visualização pública)
 import Championships from './pages/Championship/Championships'
 import ChampionshipDetail from './pages/Championship/ChampionshipDetail'
+import ChampionshipPublicView from './pages/Championship/ChampionshipView'
+// import ChampionshipView from "./pages/Organization/ChampionshipView";
+
+
+// Error pages
+import NotFound from './pages/NotFound'
+import Unauthorized from './pages/Unauthorized'
 
 function App() {
   const { user, loading } = useAuth()
@@ -39,7 +52,7 @@ function App() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">
-          <div className="spinner w-8 h-8 border-primary-500 mb-4"></div>
+          <div className="animate-spin w-8 h-8 border-4 border-primary-500 border-t-transparent rounded-full mb-4"></div>
           <p className="text-gray-600">Carregando...</p>
         </div>
       </div>
@@ -61,6 +74,13 @@ function App() {
             element={user ? <Navigate to="/dashboard" replace /> : <Register />}
           />
 
+          {/* Public championship views */}
+          <Route path="/championships" element={<Championships />} />
+          <Route path="/championships/:id" element={<ChampionshipPublicView />} />
+          <Route path="/championships/:id/standings" element={<ChampionshipPublicView />} />
+          <Route path="/championships/:id/matches" element={<ChampionshipPublicView />} />
+          <Route path="/championships/:id/stats" element={<ChampionshipPublicView />} />
+
           {/* Protected routes */}
           <Route
             path="/dashboard"
@@ -73,123 +93,80 @@ function App() {
 
           {/* Club routes */}
           <Route
-            path="/club/team"
+            path="/club/*"
             element={
-              <ProtectedRoute requiredType="club">
-                <ClubTeam />
+              <ProtectedRoute requiredType="club" unauthorizedPath="/dashboard">
+                <Routes>
+                  <Route index element={<Navigate to="dashboard" replace />} />
+                  <Route path="dashboard" element={<ClubDashboard />} />
+                  <Route path="team" element={<ClubTeam />} />
+                  <Route path="profile" element={<Navigate to="/dashboard" />} />
+                </Routes>
               </ProtectedRoute>
             }
           />
 
           {/* Athlete routes */}
           <Route
-            path="/athlete/profile"
+            path="/athlete/*"
             element={
-              <ProtectedRoute requiredType="athlete">
-                <AthleteProfile />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/athlete/invites"
-            element={
-              <ProtectedRoute requiredType="athlete">
-                <AthleteInvites />
-              </ProtectedRoute>
-            }
-          />
-
-          {/* Organization routes */}
-          <Route
-            path="/organization/championships"
-            element={
-              <ProtectedRoute requiredType="organization">
-                <OrganizationChampionships />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/organization/championships/create"
-            element={
-              <ProtectedRoute requiredType="organization">
-                <CreateChampionship />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/organization/championships/:id/tables"
-            element={
-              <ProtectedRoute requiredType="organization">
-                <ChampionshipTables />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/organization/championships/:id/manage"
-            element={
-              <ProtectedRoute requiredType="organization">
-                <ChampionshipManage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/organization/championships/:id/teams"
-            element={
-              <ProtectedRoute requiredType="organization">
-                <ChampionshipTeams />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/organization/championships/:id/edit"
-            element={
-              <ProtectedRoute requiredType="organization">
-                <CreateChampionship />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/organization/championships/:id/view"
-            element={
-              <ProtectedRoute requiredType="organization">
-                <ChampionshipView />
+              <ProtectedRoute requiredType="athlete" unauthorizedPath="/dashboard">
+                <Routes>
+                  <Route index element={<Navigate to="dashboard" replace />} />
+                  <Route path="dashboard" element={<AthleteDashboard />} />
+                  <Route path="profile" element={<AthleteProfile />} />
+                  <Route path="invites" element={<AthleteInvites />} />
+                </Routes>
               </ProtectedRoute>
             }
           />
 
-          {/* Championship routes */}
+          {/* Organization routes - COMPLETAS */}
           <Route
-            path="/championships"
+            path="/organization/*"
             element={
-              <ProtectedRoute>
-                <Championships />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/championships/:id"
-            element={
-              <ProtectedRoute>
-                <ChampionshipDetail />
+              <ProtectedRoute requiredType="organization" unauthorizedPath="/dashboard">
+                <Routes>
+                  <Route index element={<Navigate to="dashboard" replace />} />
+                  
+                  {/* Dashboard principal da organização */}
+                  <Route path="dashboard" element={<OrganizationAdvancedDashboard />} />
+                  
+                  {/* Gerenciamento de campeonatos */}
+                  <Route path="championships" element={<OrganizationChampionships />} />
+                  <Route path="championships/create" element={<CreateChampionship />} />
+                  
+                  {/* Rotas específicas de campeonato */}
+                  <Route path="championships/:id" element={<UnifiedChampionshipDashboard />} />
+                  <Route path="championships/:id/dashboard" element={<UnifiedChampionshipDashboard />} />
+                  <Route path="championships/:id/manage" element={<ChampionshipManage />} />
+                  <Route path="championships/:id/teams" element={<ChampionshipTeamsManagement />} />
+                  <Route path="championships/:id/tables" element={<ChampionshipTables />} />
+                  <Route path="championships/:id/results" element={<ChampionshipResults />} />
+                  <Route path="championships/:id/reports" element={<ChampionshipReports />} />
+                  
+                  {/* Redirecionamentos para compatibilidade */}
+                  <Route path="championships/:id/view" element={<Navigate to="/organization/championships/:id" replace />} />
+                  <Route path="championships/:id/matches" element={<Navigate to="/organization/championships/:id/results" replace />} />
+                </Routes>
               </ProtectedRoute>
             }
           />
 
-          {/* Default redirects */}
-          <Route
-            path="/"
+          {/* Error routes */}
+          <Route path="/unauthorized" element={<Unauthorized />} />
+          <Route path="/404" element={<NotFound />} />
+
+          {/* Root redirect */}
+          <Route 
+            path="/" 
             element={
               user ? <Navigate to="/dashboard" replace /> : <Navigate to="/home" replace />
-            }
+            } 
           />
 
-          {/* Catch all - redirect to dashboard or login */}
-          <Route
-            path="*"
-            element={
-              user ? <Navigate to="/dashboard" replace /> : <Navigate to="/login" replace />
-            }
-          />
+          {/* 404 - deve ser a última rota */}
+          <Route path="*" element={<NotFound />} />
         </Routes>
       </Layout>
     </ChampionshipsProvider>
