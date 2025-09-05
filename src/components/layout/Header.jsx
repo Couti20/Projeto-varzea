@@ -6,6 +6,22 @@ import clsx from 'clsx'
 const Header = ({ className = '' }) => {
   const { user, logout } = useAuth()
 
+  // 🆕 NOVA FUNÇÃO - Adicionar esta função
+  const getDashboardLink = () => {
+    if (!user) return '/dashboard';
+    
+    switch (user.type) {
+      case 'organization':
+        return '/organization/dashboard';
+      case 'club':
+        return '/club/dashboard';
+      case 'athlete':
+        return '/athlete/dashboard';
+      default:
+        return '/dashboard';
+    }
+  };
+
   const handleLogout = () => {
     logout()
   }
@@ -62,8 +78,8 @@ const Header = ({ className = '' }) => {
     <header className={clsx('bg-white shadow-sm border-b safe-area-top', className)}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
-          {/* Logo */}
-          <Link to="/dashboard" className="flex items-center space-x-2">
+          {/* 🔄 MUDANÇA - Logo agora usa getDashboardLink() */}
+          <Link to={getDashboardLink()} className="flex items-center space-x-2">
             <span className="text-2xl">⚽</span>
             <span className="text-xl font-bold text-primary-600 hidden sm:block">
               Futebol de Várzea
@@ -75,8 +91,9 @@ const Header = ({ className = '' }) => {
 
           {/* Desktop Navigation */}
           <nav className="hidden lg:flex items-center space-x-8">
+            {/* 🔄 MUDANÇA - Botão Dashboard agora usa getDashboardLink() */}
             <Link 
-              to="/dashboard" 
+              to={getDashboardLink()} 
               className="text-gray-700 hover:text-primary-600 font-medium transition-colors"
             >
               Dashboard

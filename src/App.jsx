@@ -1,4 +1,4 @@
-// src/App.jsx - VERSÃO ATUALIZADA
+// src/App.jsx - VERSÃO ATUALIZADA E CORRIGIDA
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { useAuth } from './context/AuthContext'
 import { ChampionshipsProvider } from './context/ChampionshipsContext'
@@ -17,10 +17,15 @@ import Dashboard from './pages/Dashboard'
 import ClubTeam from './pages/Club/ClubTeam'
 import ClubDashboard from './pages/Club/ClubDashboard'
 
-// Athlete pages
+// Athlete pages - EXISTENTES
 import AthleteProfile from './pages/Athlete/AthleteProfile'
 import AthleteInvites from './pages/Athlete/AthleteInvites'
 import AthleteDashboard from './pages/Athlete/AthleteDashboard'
+
+// Athlete pages - NOVAS FUNCIONALIDADES
+import MultiTeamManagement from './pages/Athlete/MultiTeamManagement'
+import ChampionshipExplorer from './pages/Athlete/ChampionshipExplorer'
+import SocialDiscovery from './pages/Athlete/SocialDiscovery'
 
 // Organization pages - ATUALIZADAS
 import OrganizationChampionships from './pages/Organization/OrganizationChampionships'
@@ -37,8 +42,6 @@ import UnifiedChampionshipDashboard from './pages/Organization/UnifiedChampionsh
 import Championships from './pages/Championship/Championships'
 import ChampionshipDetail from './pages/Championship/ChampionshipDetail'
 import ChampionshipPublicView from './pages/Championship/ChampionshipView'
-// import ChampionshipView from "./pages/Organization/ChampionshipView";
-
 
 // Error pages
 import NotFound from './pages/NotFound'
@@ -106,16 +109,23 @@ function App() {
             }
           />
 
-          {/* Athlete routes */}
+          {/* Athlete routes - EXPANDIDAS COM NOVAS FUNCIONALIDADES */}
           <Route
             path="/athlete/*"
             element={
               <ProtectedRoute requiredType="athlete" unauthorizedPath="/dashboard">
                 <Routes>
                   <Route index element={<Navigate to="dashboard" replace />} />
+                  
+                  {/* Páginas existentes */}
                   <Route path="dashboard" element={<AthleteDashboard />} />
                   <Route path="profile" element={<AthleteProfile />} />
                   <Route path="invites" element={<AthleteInvites />} />
+                  
+                  {/* NOVAS FUNCIONALIDADES - Módulo Expandido */}
+                  <Route path="teams" element={<MultiTeamManagement />} />
+                  <Route path="championships" element={<ChampionshipExplorer />} />
+                  <Route path="discover" element={<SocialDiscovery />} />
                 </Routes>
               </ProtectedRoute>
             }

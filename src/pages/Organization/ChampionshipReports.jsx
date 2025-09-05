@@ -17,7 +17,8 @@ import {
   Zap,
   Shield,
   Eye,
-   Printer
+   Printer,
+     Printer as Print
 } from 'lucide-react';
 import { Button } from '../../components/ui';
 import { useStatisticsCalculator, formatters } from '../../utils/statisticsCalculator';
